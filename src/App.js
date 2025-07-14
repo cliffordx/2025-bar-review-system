@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, BookOpen, Target, Calendar, Award, CheckCircle2, PlayCircle, RefreshCw, ArrowRight, Pause, Play, Square, Settings, Coffee, Brain } from 'lucide-react';
+import { Clock, BookOpen, Target, Calendar, Award, CheckCircle2, PlayCircle, RefreshCw, ArrowRight, Pause, Play, Square, Settings, Coffee, Brain, Bell, BellOff } from 'lucide-react';
 
 const BarReviewSystem = () => {
   const [currentWeek, setCurrentWeek] = useState(1);
@@ -15,8 +15,10 @@ const BarReviewSystem = () => {
     workDuration: 90, // minutes
     breakDuration: 10, // minutes
   });
+  const [selectedPreset, setSelectedPreset] = useState('deep-dive');
   const [pomodoroRound, setPomodoroRound] = useState(1);
   const [totalStudyTime, setTotalStudyTime] = useState(0);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [weeklyProgress, setWeeklyProgress] = useState({
     1: { subject: 'Political Law', completed: 0, total: 7 },
     2: { subject: 'Commercial Law', completed: 0, total: 7 },
@@ -233,6 +235,37 @@ const BarReviewSystem = () => {
     }
   };
 
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        setNotificationsEnabled(permission === 'granted');
+      });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      setNotificationsEnabled(true);
+    }
+  }, []);
+
+  const sendNotification = (title, body) => {
+    if (notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, {
+        body: body,
+        icon: '/favicon.ico'
+      });
+    }
+  };
+
+  const toggleNotifications = async () => {
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        const permission = await Notification.requestPermission();
+        setNotificationsEnabled(permission === 'granted');
+      } else if (Notification.permission === 'granted') {
+        setNotificationsEnabled(!notificationsEnabled);
+      }
+    }
+  };
+
   const startMockExam = (duration = 3600) => {
     setCurrentSession('exam');
     setTimeRemaining(duration);
@@ -293,26 +326,16 @@ const BarReviewSystem = () => {
       setTimeRemaining(pomodoroConfig.breakDuration * 60);
       setIsTimerActive(true);
       
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Work session complete!', {
-          body: `Great job! Take a ${pomodoroConfig.breakDuration}-minute break.`,
-          icon: '/favicon.ico'
-        });
-      }
+      sendNotification('Work session complete!', `Great job! Take a ${pomodoroConfig.breakDuration}-minute break.`);
     } else if (pomodoroState === 'break') {
       setPomodoroRound(prev => prev + 1);
       setPomodoroState('work');
       setTimeRemaining(pomodoroConfig.workDuration * 60);
       setIsTimerActive(false);
       
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Break complete!', {
-          body: 'Ready for another study session?',
-          icon: '/favicon.ico'
-        });
-      }
+      sendNotification('Break complete!', 'Ready for another study session?');
     }
-  }, [pomodoroState, pomodoroConfig.workDuration, pomodoroConfig.breakDuration]);
+  }, [pomodoroState, pomodoroConfig.workDuration, pomodoroConfig.breakDuration, notificationsEnabled]);
 
   useEffect(() => {
     let interval;
@@ -332,6 +355,7 @@ const BarReviewSystem = () => {
   }, [isTimerActive, timeRemaining, currentSession, handleTimeUp, handlePomodoroComplete]);
 
   const formatTime = (seconds) => {
+    if (!seconds || seconds < 0) return "00:00:00";
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -379,8 +403,14 @@ const BarReviewSystem = () => {
                     max="180"
                     step="5"
                     value={pomodoroConfig.workDuration}
-                    onChange={(e) => setPomodoroConfig(prev => ({...prev, workDuration: parseInt(e.target.value)}))}
-                    className="flex-1 h-2 bg-white/20 rounded-lg appearance-none slider"
+                    onChange={(e) => {
+                      setPomodoroConfig(prev => ({...prev, workDuration: parseInt(e.target.value)}));
+                      setSelectedPreset('custom');
+                    }}
+                    className="flex-1 h-3 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, #10b981 0%, #10b981 ${((pomodoroConfig.workDuration - 25) / (180 - 25)) * 100}%, rgba(255,255,255,0.2) ${((pomodoroConfig.workDuration - 25) / (180 - 25)) * 100}%, rgba(255,255,255,0.2) 100%)`
+                    }}
                   />
                   <div className="bg-white/10 px-4 py-2 rounded-lg min-w-[80px] text-center font-mono text-lg">
                     {pomodoroConfig.workDuration}m
@@ -402,8 +432,14 @@ const BarReviewSystem = () => {
                     max="30"
                     step="1"
                     value={pomodoroConfig.breakDuration}
-                    onChange={(e) => setPomodoroConfig(prev => ({...prev, breakDuration: parseInt(e.target.value)}))}
-                    className="flex-1 h-2 bg-white/20 rounded-lg appearance-none slider"
+                    onChange={(e) => {
+                      setPomodoroConfig(prev => ({...prev, breakDuration: parseInt(e.target.value)}));
+                      setSelectedPreset('custom');
+                    }}
+                    className="flex-1 h-3 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, #10b981 0%, #10b981 ${((pomodoroConfig.breakDuration - 5) / (30 - 5)) * 100}%, rgba(255,255,255,0.2) ${((pomodoroConfig.breakDuration - 5) / (30 - 5)) * 100}%, rgba(255,255,255,0.2) 100%)`
+                    }}
                   />
                   <div className="bg-white/10 px-4 py-2 rounded-lg min-w-[80px] text-center font-mono text-lg">
                     {pomodoroConfig.breakDuration}m
@@ -420,29 +456,57 @@ const BarReviewSystem = () => {
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <button
-                    onClick={() => setPomodoroConfig({workDuration: 25, breakDuration: 5})}
-                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
+                    onClick={() => {
+                      setPomodoroConfig({workDuration: 25, breakDuration: 5});
+                      setSelectedPreset('classic');
+                    }}
+                    className={`p-3 rounded-lg text-sm transition-all ${
+                      selectedPreset === 'classic' 
+                        ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   >
                     <div className="font-semibold">Classic</div>
                     <div className="text-xs opacity-75">25m + 5m</div>
                   </button>
                   <button
-                    onClick={() => setPomodoroConfig({workDuration: 50, breakDuration: 10})}
-                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
+                    onClick={() => {
+                      setPomodoroConfig({workDuration: 50, breakDuration: 10});
+                      setSelectedPreset('extended');
+                    }}
+                    className={`p-3 rounded-lg text-sm transition-all ${
+                      selectedPreset === 'extended' 
+                        ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   >
                     <div className="font-semibold">Extended</div>
                     <div className="text-xs opacity-75">50m + 10m</div>
                   </button>
                   <button
-                    onClick={() => setPomodoroConfig({workDuration: 90, breakDuration: 10})}
-                    className="p-3 bg-green-500/30 hover:bg-green-500/40 rounded-lg text-sm transition-all border border-green-400/50"
+                    onClick={() => {
+                      setPomodoroConfig({workDuration: 90, breakDuration: 10});
+                      setSelectedPreset('deep-dive');
+                    }}
+                    className={`p-3 rounded-lg text-sm transition-all ${
+                      selectedPreset === 'deep-dive' 
+                        ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   >
                     <div className="font-semibold">Deep Dive</div>
                     <div className="text-xs opacity-75">90m + 10m</div>
                   </button>
                   <button
-                    onClick={() => setPomodoroConfig({workDuration: 120, breakDuration: 15})}
-                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
+                    onClick={() => {
+                      setPomodoroConfig({workDuration: 120, breakDuration: 15});
+                      setSelectedPreset('ultra');
+                    }}
+                    className={`p-3 rounded-lg text-sm transition-all ${
+                      selectedPreset === 'ultra' 
+                        ? 'bg-green-500/30 hover:bg-green-500/40 border border-green-400/50' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   >
                     <div className="font-semibold">Ultra</div>
                     <div className="text-xs opacity-75">120m + 15m</div>
@@ -456,16 +520,32 @@ const BarReviewSystem = () => {
                 <div className="text-sm opacity-75">{weeklySchedule[currentWeek].format}</div>
               </div>
 
+              <div className="bg-white/10 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-green-300">Notifications</span>
+                  <button
+                    onClick={toggleNotifications}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    {notificationsEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                    {notificationsEnabled ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+                <div className="text-xs opacity-75">
+                  Get notified when work sessions and breaks complete
+                </div>
+              </div>
+
               <div className="flex gap-4 pt-4">
                 <button
                   onClick={() => setCurrentSession('study')}
-                  className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg flex items-center justify-center gap-2 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={startPomodoroTimer}
-                  className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg flex items-center justify-center gap-2 font-semibold"
+                  className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors"
                 >
                   <Brain className="w-5 h-5" />
                   Start Study Session
@@ -484,6 +564,7 @@ const BarReviewSystem = () => {
     const bgColor = isWorkSession ? 'from-blue-900 via-blue-800 to-indigo-900' : 'from-green-900 via-green-800 to-emerald-900';
     const accentColor = isWorkSession ? 'text-blue-300' : 'text-green-300';
     const IconComponent = isWorkSession ? Brain : Coffee;
+    const maxDuration = isWorkSession ? pomodoroConfig.workDuration : pomodoroConfig.breakDuration;
 
     return (
       <div className={`min-h-screen bg-gradient-to-br ${bgColor} text-white p-6`}>
@@ -522,7 +603,7 @@ const BarReviewSystem = () => {
                     isWorkSession ? 'bg-blue-400' : 'bg-green-400'
                   }`}
                   style={{ 
-                    width: `${100 - (timeRemaining / (isWorkSession ? pomodoroConfig.workDuration : pomodoroConfig.breakDuration) / 60) * 100}%` 
+                    width: `${Math.max(0, Math.min(100, 100 - (timeRemaining / (maxDuration * 60)) * 100))}%` 
                   }}
                 />
               </div>
@@ -532,7 +613,7 @@ const BarReviewSystem = () => {
                   onClick={pausePomodoroTimer}
                   className={`px-8 py-4 ${
                     isWorkSession ? 'bg-blue-600 hover:bg-blue-500' : 'bg-green-600 hover:bg-green-500'
-                  } rounded-lg flex items-center gap-2 font-semibold text-lg`}
+                  } rounded-lg flex items-center gap-2 font-semibold text-lg transition-colors`}
                 >
                   {isTimerActive ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
                   {isTimerActive ? 'Pause' : 'Resume'}
@@ -540,7 +621,7 @@ const BarReviewSystem = () => {
                 
                 <button
                   onClick={resetPomodoroTimer}
-                  className="px-8 py-4 bg-gray-600 hover:bg-gray-500 rounded-lg flex items-center gap-2 font-semibold text-lg"
+                  className="px-8 py-4 bg-gray-600 hover:bg-gray-500 rounded-lg flex items-center gap-2 font-semibold text-lg transition-colors"
                 >
                   <RefreshCw className="w-6 h-6" />
                   Reset
@@ -548,7 +629,7 @@ const BarReviewSystem = () => {
                 
                 <button
                   onClick={stopPomodoroSession}
-                  className="px-8 py-4 bg-red-600 hover:bg-red-500 rounded-lg flex items-center gap-2 font-semibold text-lg"
+                  className="px-8 py-4 bg-red-600 hover:bg-red-500 rounded-lg flex items-center gap-2 font-semibold text-lg transition-colors"
                 >
                   <Square className="w-6 h-6" />
                   Stop
@@ -567,7 +648,7 @@ const BarReviewSystem = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>Duration:</span>
-                  <span>{isWorkSession ? pomodoroConfig.workDuration : pomodoroConfig.breakDuration} minutes</span>
+                  <span>{maxDuration} minutes</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Round:</span>
@@ -585,7 +666,7 @@ const BarReviewSystem = () => {
                 {isWorkSession ? 'Study Tips' : 'Break Suggestions'}
               </h3>
               <div className="space-y-2 text-sm">
-                {isWorkSession ? [
+                {(isWorkSession ? [
                   '📚 Focus on one topic at a time',
                   '✍️ Take notes using the four-sentence format',
                   '🎯 Review codal provisions actively',
@@ -597,8 +678,8 @@ const BarReviewSystem = () => {
                   '🧘 Do light stretching',
                   '👀 Rest your eyes (look away from screen)',
                   '🍎 Have a healthy snack'
-                ]}.map((tip, index) => (
-                  <div key={index} className="opacity-90">{tip}</div>
+                ]).map((tip, tipIndex) => (
+                  <div key={tipIndex} className="opacity-90">{tip}</div>
                 ))}
               </div>
             </div>
@@ -639,7 +720,9 @@ const BarReviewSystem = () => {
                 
                 <div className="bg-yellow-400/20 border border-yellow-400/30 rounded-lg p-3 mb-4">
                   <div className="text-yellow-300 text-sm font-semibold mb-1">Justice Amy's Four-Sentence Format:</div>
-                  <div className="text-sm opacity-90">1. Categorical Answer → 2. Legal Basis → 3. Application → 4. Conclusion</div>
+                  <div className="text-sm opacity-90">
+                    1. Categorical Answer → 2. Legal Basis → 3. Application → 4. Conclusion
+                  </div>
                 </div>
 
                 <div className="text-sm text-blue-200 bg-blue-500/20 rounded p-2">
@@ -649,7 +732,7 @@ const BarReviewSystem = () => {
             </div>
 
             <textarea
-              className="w-full h-64 bg-white/10 border border-white/20 rounded-lg p-4 text-white placeholder-white/50 resize-none"
+              className="w-full h-64 bg-white/10 border border-white/20 rounded-lg p-4 text-white placeholder-white/50 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
               placeholder="Write your answer here following the four-sentence format...
 
 1. Categorical Answer: [Start with a direct yes/no or clear position]
@@ -665,7 +748,7 @@ const BarReviewSystem = () => {
             <button
               onClick={prevQuestion}
               disabled={currentQuestion === 0}
-              className="px-6 py-3 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center gap-2"
+              className="px-6 py-3 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center gap-2 transition-colors"
             >
               Previous
             </button>
@@ -677,7 +760,7 @@ const BarReviewSystem = () => {
             <button
               onClick={nextQuestion}
               disabled={currentQuestion === politicalLawQuestions.length - 1}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center gap-2"
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center gap-2 transition-colors"
             >
               Next <ArrowRight className="w-4 h-4" />
             </button>
@@ -687,7 +770,7 @@ const BarReviewSystem = () => {
             <div className="mt-6 text-center">
               <button
                 onClick={handleTimeUp}
-                className="px-8 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-semibold"
+                className="px-8 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-semibold transition-colors"
               >
                 Submit Exam
               </button>
@@ -735,13 +818,13 @@ const BarReviewSystem = () => {
             <div className="space-y-3">
               <button
                 onClick={() => setCurrentSession('study')}
-                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg"
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
               >
                 Return to Study Dashboard
               </button>
               <button
                 onClick={() => startMockExam(3600)}
-                className="w-full px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg"
+                className="w-full px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg transition-colors"
               >
                 Take Another Mock Exam
               </button>
@@ -771,11 +854,11 @@ const BarReviewSystem = () => {
 
       <div className="max-w-6xl mx-auto p-6">
         <div className="grid md:grid-cols-3 gap-4 mb-8">
-          {examSchedule.map((exam, index) => (
-            <div key={index} className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+          {examSchedule.map((exam, examIndex) => (
+            <div key={examIndex} className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="text-yellow-300 font-semibold">{exam.date}</div>
-              {exam.subjects.map((subject, idx) => (
-                <div key={idx} className="text-sm mt-1">{subject}</div>
+              {exam.subjects.map((subject, subjectIndex) => (
+                <div key={subjectIndex} className="text-sm mt-1">{subject}</div>
               ))}
             </div>
           ))}
@@ -829,8 +912,8 @@ const BarReviewSystem = () => {
               <div className="text-sm mb-4">
                 <strong>Today's Activities:</strong>
                 <ul className="list-disc list-inside mt-2 opacity-75">
-                  {weeklySchedule[currentWeek].activities.map((activity, index) => (
-                    <li key={index}>{activity}</li>
+                  {weeklySchedule[currentWeek].activities.map((activity, activityIndex) => (
+                    <li key={activityIndex}>{activity}</li>
                   ))}
                 </ul>
               </div>
@@ -839,7 +922,7 @@ const BarReviewSystem = () => {
             <div className="space-y-3">
               <button
                 onClick={startStudySession}
-                className="w-full px-4 py-3 bg-green-600 hover:bg-green-500 rounded-lg flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-green-600 hover:bg-green-500 rounded-lg flex items-center justify-center gap-2 transition-colors"
               >
                 <Brain className="w-5 h-5" />
                 Start Pomodoro Study Session
@@ -847,7 +930,7 @@ const BarReviewSystem = () => {
               
               <button
                 onClick={() => startMockExam(3600)}
-                className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg flex items-center justify-center gap-2 transition-colors"
               >
                 <Target className="w-5 h-5" />
                 Take Mock Exam (1 Hour)
@@ -855,7 +938,7 @@ const BarReviewSystem = () => {
               
               <button
                 onClick={() => startMockExam(900)}
-                className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-500 rounded-lg flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-500 rounded-lg flex items-center justify-center gap-2 transition-colors"
               >
                 <Clock className="w-5 h-5" />
                 Quick Drill (15 mins)
@@ -870,8 +953,8 @@ const BarReviewSystem = () => {
             </div>
             
             <div className="space-y-3 text-sm">
-              {amyJavierReminders.slice(0, 6).map((reminder, index) => (
-                <div key={index} className="flex items-start gap-3">
+              {amyJavierReminders.slice(0, 6).map((reminder, reminderIndex) => (
+                <div key={reminderIndex} className="flex items-start gap-3">
                   <CheckCircle2 className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" />
                   <span className="opacity-90">{reminder}</span>
                 </div>
