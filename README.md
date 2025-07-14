@@ -1,5 +1,7 @@
 # 2025 Bar Review System Workflow and Schedule (LEGALBAI)
 
+![Bar Review System Screenshot](public/screenshot.jpg)
+
 # Setup Instructions
 
 ## Prerequisites
