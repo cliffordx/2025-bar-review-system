@@ -134,7 +134,7 @@ A comprehensive Pomodoro timer system for the Study Session. This will be config
 ### **⚙️ Configurable Timer Setup**
 - **Slider controls** for work duration (25-180 minutes) and break duration (5-30 minutes)
 - **Quick presets**: Classic (25+5), Extended (50+10), Deep Dive (90+10), Ultra (120+15)
-- **Default**: 90-minute work + 10-minute break (following your deep-dive methodology)
+- **Default**: 90-minute work + 10-minute break (recommended deep-dive methodology)
 
 ### **⏱️ Full Timer Interface**
 - **Large countdown display** with progress bar
