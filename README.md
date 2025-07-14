@@ -1,4 +1,4 @@
-# 2025 Bar Review System Workflow and Schedule (LEGALBAI)
+# 2025 Bar Review System Workflows and Scheduling (LEGALBAI)
 
 ![Bar Review System Screenshot](public/screenshot.jpg)
 
